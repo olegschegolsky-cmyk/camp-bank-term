@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CampBank Admin</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+    <div class="container mt-4">
+        <h2 class="mb-4">CampBank Адмін-панель</h2>
+        
+        <div class="row mb-4">
+            <div class="col-md-4">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title">Транзакція користувача</h5>
+                        <select id="userSelect" class="form-select mb-2"></select>
+                        <input type="number" id="userAmount" class="form-control mb-2" placeholder="Сума (можна з мінусом)">
+                        <button onclick="userTransaction()" class="btn btn-primary w-100">Виконати</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title">Транзакція команди</h5>
+                        <select id="teamSelect" class="form-select mb-2"></select>
+                        <input type="number" id="teamAmount" class="form-control mb-2" placeholder="Сума на кожного учасника">
+                        <button onclick="teamTransaction()" class="btn btn-success w-100">Виконати для всіх</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title">Призначити команду</h5>
+                        <select id="teamAssignUserSelect" class="form-select mb-2"></select>
+                        <input type="text" id="newTeamName" class="form-control mb-2" placeholder="Назва команди">
+                        <button onclick="assignTeam()" class="btn btn-secondary w-100">Зберегти</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">Список користувачів</h5>
+                <table class="table table-hover mt-3">
+                    <thead>
+                        <tr>
+                            <th>Ім'я</th>
+                            <th>UID Картки</th>
+                            <th>Команда</th>
+                            <th>Баланс</th>
+                        </tr>
+                    </thead>
+                    <tbody id="usersTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function loadData() {
+            const response = await fetch('/users/all');
+            const users = await response.json();
+            
+            const tbody = document.getElementById('usersTableBody');
+            const userSelect = document.getElementById('userSelect');
+            const teamAssignUserSelect = document.getElementById('teamAssignUserSelect');
+            const teamSelect = document.getElementById('teamSelect');
+            
+            tbody.innerHTML = '';
+            userSelect.innerHTML = '<option value="">Оберіть користувача...</option>';
+            teamAssignUserSelect.innerHTML = '<option value="">Оберіть користувача...</option>';
+            
+            const teams = new Set();
+
+            users.forEach(user => {
+                // Заповнення таблиці
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${user.name}</td>
+                        <td>${user.nfc_uid}</td>
+                        <td><span class="badge bg-info text-dark">${user.team}</span></td>
+                        <td><strong>${user.balance} UAH</strong></td>
+                    </tr>
+                `;
+                
+                // Заповнення списків користувачів
+                const option = `<option value="${user.nfc_uid}">${user.name} (${user.nfc_uid})</option>`;
+                userSelect.innerHTML += option;
+                teamAssignUserSelect.innerHTML += option;
+
+                // Збір унікальних команд
+                if(user.team && user.team !== "Без команди") {
+                    teams.add(user.team);
+                }
+            });
+
+            // Заповнення списку команд
+            teamSelect.innerHTML = '<option value="">Оберіть команду...</option>';
+            teams.forEach(team => {
+                teamSelect.innerHTML += `<option value="${team}">${team}</option>`;
+            });
+        }
+
+        async function userTransaction() {
+            const uid = document.getElementById('userSelect').value;
+            const amount = document.getElementById('userAmount').value;
+            if (!uid || !amount) return alert("Заповніть всі поля");
+            
+            await fetch(`/admin/transaction/user?uid=${uid}&amount=${amount}`, { method: 'POST' });
+            document.getElementById('userAmount').value = '';
+            loadData();
+        }
+
+        async function teamTransaction() {
+            const team = document.getElementById('teamSelect').value;
+            const amount = document.getElementById('teamAmount').value;
+            if (!team || !amount) return alert("Заповніть всі поля");
+            
+            await fetch(`/admin/transaction/team?team=${team}&amount=${amount}`, { method: 'POST' });
+            document.getElementById('teamAmount').value = '';
+            loadData();
+        }
+
+        async function assignTeam() {
+            const uid = document.getElementById('teamAssignUserSelect').value;
+            const team = document.getElementById('newTeamName').value;
+            if (!uid || !team) return alert("Заповніть всі поля");
+            
+            await fetch(`/users/${uid}/team?team=${team}`, { method: 'PUT' });
+            document.getElementById('newTeamName').value = '';
+            loadData();
+        }
+
+        // Завантаження даних при відкритті сторінки
+        loadData();
+    </script>
+</body>
+</html>
